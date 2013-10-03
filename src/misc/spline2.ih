@@ -1,0 +1,179 @@
+#include "interpol.hh"
+#include <iostream>
+
+template <typename F>
+Spline<F, 2>::Spline(unsigned bits, F const &f_): 
+	loop(4), b4(2),
+	box(bits), fn(f_) {}
+
+template <typename F>
+double Spline<F, 2>::operator()(fVector const &x) const
+{
+	return f(x);
+}
+
+template <typename F>
+class spline_2_f
+{
+
+	cVector<2> box, loop;
+	cVector<2>::C s;
+	F fn;
+	double *A;
+
+	public:
+		spline_2_f(cVector<2> const &box_, cVector<2> const &loop_, size_t loc,
+			F const &fn_, double *A_):
+			box(box_), loop(loop_), s(box[loc]), fn(fn_), A(A_) {}
+
+		std::vector<double> operator()()
+		{
+			double b[16];
+			for (unsigned i = 0; i < 4; ++i)
+			{
+				cVector<2>::C X = s + box.sq[i];
+				// f(x)
+				b[i] 		= fn[X];
+				// df/dx
+				b[i + 4] 	= (fn[X + box.dx[0]] - fn[X - box.dx[0]])/2;
+				// df/dy
+				b[i + 8] 	= (fn[X + box.dx[1]] - fn[X - box.dx[1]])/2;
+				// (d^2 f)/(dy dx)
+				b[i + 12]	= ((fn[X + box.dx[1] + box.dx[0]] 
+						-   fn[X - box.dx[1] + box.dx[0]])
+						-  (fn[X + box.dx[1] - box.dx[0]] 
+						-   fn[X - box.dx[1] - box.dx[0]]))/4;
+			}
+
+			std::vector<double> aapje(16, 0.0);
+			for (auto &j : loop)
+				aapje[j[1]] += b[j[0]] * A[j];
+			return aapje;
+		}
+};
+
+template <typename F>
+double Spline<F, 2>::f(fVector const &x) const
+{
+	iVector origin;
+	fVector P;
+
+	transform(x, origin, [] (double q)
+		{ return (q < 0 ? (int)q - 1 : (int)q); });
+	transform(x, origin, P, [] (double q, int o) 
+		{ return q - o; });
+	/*transform(P, P, [] (double g)
+		{ return 1 - g; });*/
+
+	auto s = box.loc(origin);
+	std::vector<double> &alpha = cache(s, spline_2_f<F>(box, loop, s, fn, A));
+
+	/*[&] ()
+	{
+		double b[16];
+		for (unsigned i = 0; i < 4; ++i)
+		{
+			cVector<2>::C X = s + box.sq[i];
+			// f(x)
+			b[i] 		= fn[X];
+			// df/dx
+			b[i + 4] 	= (fn[X + box.dx[0]] - fn[X - box.dx[0]])/2;
+			// df/dy
+			b[i + 8] 	= (fn[X + box.dx[1]] - fn[X - box.dx[1]])/2;
+			// (d^2 f)/(dy dx)
+			b[i + 12]	= ((fn[X + box.dx[1] + box.dx[0]] 
+					-   fn[X - box.dx[1] + box.dx[0]])
+					-  (fn[X + box.dx[1] - box.dx[0]] 
+					-   fn[X - box.dx[1] - box.dx[0]]))/4;
+		}
+
+		std::vector<double> aapje(16, 0.0);
+		for (auto &j : loop)
+			aapje[j[1]] += b[j[0]] * A[j];
+		return aapje;
+	}); */
+
+	// v(x, y) = Sum[alpha_ij * x**i y**j]
+	double v = 0;
+	for (auto &z : b4)
+	{
+		v += alpha[z] * pow(P[0], z[0]) * pow(P[1], z[1]);
+	}
+
+	return v;
+}
+
+
+template <typename F>
+double Spline<F, 2>::df(unsigned k, fVector const &x) const
+{
+	iVector origin;
+	fVector P;
+
+	transform(x, origin, [] (double q)
+		{ return (int)q; });
+	transform(x, origin, P, [] (double q, int o) 
+		{ return q - o; });
+
+	//transform(P[1], P[0], [] (double g)
+	//	{ return 1 - g; });
+
+	std::vector<double> alpha(16, 0.0);
+
+	auto s = box(origin);
+	double b[16];
+	for (unsigned i = 0; i < 4; ++i)
+	{
+		cVector<2>::C X = box[s] + box.sq[i];
+		// f(x)
+		b[i] 		= fn[X];
+		// df/dx
+		b[i + 4] 	= (fn[X + box.dx[0]] - fn[X - box.dx[0]])/2;
+		// df/dy
+		b[i + 8] 	= (fn[X + box.dx[1]] - fn[X - box.dx[1]])/2;
+		// (d^2 f)/(dy dx)
+		b[i + 12]	= ((fn[X + box.dx[1] + box.dx[0]] 
+				-   fn[X - box.dx[1] + box.dx[0]])
+				-  (fn[X + box.dx[1] - box.dx[0]] 
+				-   fn[X - box.dx[1] - box.dx[0]]))/4;
+	}
+
+	for (auto &i : loop)
+		alpha[i[1]] += b[i[0]] * A[i];
+
+	/*std::vector<double> &alpha = cache(s, [&] ()
+	{
+		double b[16];
+		for (unsigned i = 0; i < 4; ++i)
+		{
+			cVector<2>::C X = box[s] + box.sq[i];
+			// f(x)
+			b[i] 		= fn[X];
+			// df/dx
+			b[i + 4] 	= (fn[X + box.dx[0]] - fn[X - box.dx[0]])/2;
+			// df/dy
+			b[i + 8] 	= (fn[X + box.dx[1]] - fn[X - box.dx[1]])/2;
+			// (d^2 f)/(dy dx)
+			b[i + 12]	= ((fn[X + box.dx[1] + box.dx[0]] 
+					-   fn[X - box.dx[1] + box.dx[0]])
+					-  (fn[X + box.dx[1] - box.dx[0]] 
+					-   fn[X - box.dx[1] - box.dx[0]]))/4;
+		}
+
+		std::vector<double> aapje(16, 0.0);
+		for (auto &i : loop)
+			aapje[i[1]] += b[i[0]] * A[i];
+		return aapje;
+	});*/
+
+	// v(x, y) = Sum[alpha_ij * x**i y**j]
+	double v = 0;
+	unsigned i = (k + 1) % 2;
+	for (auto &z : b4)
+		if (z[k] != 0)
+			v += alpha[z] * z[k] *  pow(P[k], z[k] - 1) * pow(P[i], z[i]);
+
+	return v;
+}
+
+// vim:syntax=cpp

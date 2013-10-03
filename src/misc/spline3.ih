@@ -1,0 +1,129 @@
+#include "interpol.hh"
+#include <iostream>
+
+template <typename F>
+Spline<F, 3>::Spline(unsigned bits, F const &f_):
+	loop(6), b4(2), box(bits), fn(f_) {}
+
+template <typename F>
+typename Spline<F, 3>::value_type Spline<F, 3>::operator()(fVector const &x) const
+{
+	return f(x);
+}
+
+template <typename F>
+class spline_3_f
+{
+	typedef typename F::value_type value_type;
+
+	cVector<2> const &loop;
+	cVector<3> const &box;
+	cVector<3>::C s;
+
+	F fn;
+	double *A;
+
+	public:
+		spline_3_f(cVector<2> const &l, cVector<3> const &b, size_t loc, F f_, double *A_):
+			loop(l), box(b), s(box[loc]), fn(f_), A(A_) {}
+
+		std::vector<value_type> operator()()
+		{
+			value_type b[64];
+
+			for (unsigned i = 0; i < 8; ++i)
+			{
+				auto X = s + box.sq[i];
+
+				// f
+				b[i]		= fn[X];
+
+				// f_x
+				b[i + 8] 	= (fn[X + box.dx[0]] - fn[X - box.dx[0]]) / 2;
+
+				// f_y
+				b[i + 16] 	= (fn[X + box.dx[1]] - fn[X - box.dx[1]]) / 2;
+
+				// f_z
+				b[i + 24] 	= (fn[X + box.dx[2]] - fn[X - box.dx[2]]) / 2;
+
+				// f_xy
+				b[i + 32]	= (fn[X + box.dx[0] + box.dx[1]] - fn[X + box.dx[0] - box.dx[1]]
+						-  fn[X - box.dx[0] + box.dx[1]] + fn[X - box.dx[0] - box.dx[1]]) / 4;
+
+				// f_yz
+				b[i + 40]	= (fn[X + box.dx[1] + box.dx[2]] - fn[X + box.dx[1] - box.dx[2]]
+						-  fn[X - box.dx[1] + box.dx[2]] + fn[X - box.dx[1] - box.dx[2]]) / 4;
+
+				// f_zx
+				b[i + 48]	= (fn[X + box.dx[2] + box.dx[0]] - fn[X + box.dx[2] - box.dx[0]]
+						-  fn[X - box.dx[2] + box.dx[0]] + fn[X - box.dx[2] - box.dx[0]]) / 4;
+
+				// f_xyz
+				b[i + 56]	= (fn[X + box.dx[0] + box.dx[1] + box.dx[2]] - fn[X + box.dx[0] + box.dx[1] - box.dx[2]]
+						-  fn[X + box.dx[0] - box.dx[1] + box.dx[2]] + fn[X + box.dx[0] - box.dx[1] - box.dx[2]]
+						-  fn[X - box.dx[0] + box.dx[1] + box.dx[2]] + fn[X - box.dx[0] + box.dx[1] - box.dx[2]]
+						+  fn[X - box.dx[0] - box.dx[1] + box.dx[2]] - fn[X - box.dx[0] - box.dx[1] - box.dx[2]]) / 8;
+			}
+
+			std::vector<value_type> alpha(64, 0.0);
+			for (auto &i : loop)
+				alpha[i[1]] += b[i[0]] * A[i];
+			
+			return alpha;
+		}		
+};
+
+template <typename F>
+typename Spline<F,3>::value_type Spline<F, 3>::f(fVector const &x) const
+{
+	iVector origin;
+	fVector P;
+
+	transform(x, origin, [] (double q)
+		{ return (int)q; });
+	transform(x, origin, P, [] (double q, int o) 
+		{ return q - o; });
+	//transform(P[1], P[0], [] (double g)
+	//	{ return 1 - g; });
+
+	auto s = box(origin);
+	std::vector<value_type> &alpha = cache(s, spline_3_f<F>(loop, box, s, fn, A));
+
+	// P(x, y, z) = Sum_i Sum_j Sum_k [alpha_ijk * x^i y^j z^k]
+	value_type v = 0;
+	for (auto &i : b4) // convenient way to do triple loop
+		v += alpha[i] * pow(P[0], i[0]) * pow(P[1], i[1]) * pow(P[2], i[2]);
+
+	return v;
+}
+
+template <typename F>
+typename Spline<F,3>::value_type Spline<F, 3>::df(unsigned k, fVector const &x) const
+{
+	iVector origin;
+	fVector P;
+
+	transform(x, origin, [] (double q)
+		{ return (int)q; });
+	transform(x, origin, P, [] (double q, int o) 
+		{ return q - o; });
+	//transform(P[1], P[0], [] (double g)
+	//	{ return 1 - g; });
+
+	auto s = box(origin);
+	std::vector<value_type> &alpha = cache(s, spline_3_f<F>(loop, box, s, fn, A));
+
+	double v = 0;
+	unsigned i = (k + 1) % 3;
+	unsigned j = (k + 2) % 3;
+
+	for (auto &z : b4) // convenient way to do triple loop
+		if (z[k] != 0)
+			v += alpha[z] * z[k] * pow(P[k], z[k] - 1) 
+				* pow(P[i], z[i]) * pow(P[j], z[j]);
+
+	return v;
+}
+
+// vim:filetype=cpp:ts=4:sw=4

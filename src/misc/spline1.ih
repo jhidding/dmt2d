@@ -1,0 +1,75 @@
+#include "interpol.hh"
+
+template <typename F>
+double Spline<F, 1>::f(fVector const &x)
+{
+	iVector origin;
+	fVector B[2];
+
+	transform(x, origin, [] (double q)
+		{ return (int)q; });
+	transform(x, origin, B[1], [] (double q, int o) 
+		{ return q - o; });
+	transform(B[1], B[0], [] (double g)
+		{ return 1 - g; });
+
+	auto s = box(origin);
+
+	double b[4];
+	for (auto &i : box.sq)
+	{
+		auto X = s + i;
+		b[i]   = fd[X];
+		b[i+2] = (fd[X + box.dx[0]] - fd[X - box.dx[0]])/2;
+	}
+
+	double alpha[4];
+	std::fill_n(alpha, 4, 0.0);
+
+	for (auto &i : loop)
+		alpha[i[1]] += b[i[0]] * A[i];
+
+	double v = 0.0;
+	for (unsigned i = 0; i < 4; ++i)
+		v += alpha[i] * pow(B[0], i);
+
+	return v;
+}
+
+template <typename F>
+double Spline<F, 1>::df(unsigned k, mVector<double, R> const &x)
+{
+	iVector origin;
+	fVector P[2];
+
+	transform(x, origin, [] (double q)
+		{ return (int)q; });
+	transform(x, origin, P[1], [] (double q, int o) 
+		{ return q - o; });
+	transform(P[1], P[0], [] (double g)
+		{ return 1 - g; });
+
+	auto s = box(origin);
+
+	double b[4];
+	for (auto &i : box.sq)
+	{
+		auto X = s + i;
+		b[i]   = fd[X];
+		b[i+2] = (fd[X + box.dx[0]] - fd[X - box.dx[1]])/2;
+	}
+
+	double alpha[4];
+	std::fill_n(alpha, 4, 0.0);
+
+	for (auto &i : loop)
+		alpha[i[1]] += b[i[0]] * A[i];
+
+	double v = 0.0;
+	for (unsigned i = 1; i < 4; ++i)
+		v += alpha[i] * i * pow(P[0], i - 1);
+
+	return v;
+}
+
+// vim:filetype=cpp

@@ -15,10 +15,10 @@
 #	hidden directory (or somewhere outside the directory
 #	structure, which is even better)
 
-target="dmt"
-objdir=".obj"
-LDFLAGS="-lm -lfftw3 -fopenmp -lgsl -lgslcblas"
-CFLAGS="-O2 -Wall -g -std=c++0x -fopenmp"
+target="dmt2d"
+objdir="obj"
+LDFLAGS="-L${LOCALPATH}/lib -lm -lrt -lfftw3 -lgsl -lgslcblas -lCGAL -lgmp -lboost_thread -lmpfr"
+CFLAGS="-I${LOCALPATH}/include -g -std=c++0x -O2 -frounding-math"
 
 CC="g++"
 ext=".cc"
@@ -28,8 +28,8 @@ ECHO="echo -e"
 #>=----- you shouldn't need to edit below this line -----=<#
 #\>==--------                                  --------==>/#
 
-DIRS=`find . -maxdepth 2 -type d -name '[^\.]*'`
-CCFILES=`find . -maxdepth 3 -wholename "./[^.]*$ext"`
+DIRS=`find src -maxdepth 1 -type d -name '[^\.]*'`
+CCFILES=`find src -maxdepth 2 -wholename "[^.]*$ext"`
 
 case "$TERM" in
 	dumb)
@@ -47,10 +47,10 @@ case "$TERM" in
 		prettyprint() {
 			$ECHO "\033[$2m*\033[m $3"
 			if $1; then
-				$ECHO "\r\033[A\033[50C[\033[32mdone\033[m]"
+				$ECHO "\r\033[A\033[63C[\033[32mdone\033[m]"
 				return 1
 			else
-				$ECHO "[\033[31mfailed\033[m]"
+				$ECHO "\033[62G[\033[31mfailed\033[m]"
 				return 0
 			fi
 		} ;;
@@ -71,18 +71,34 @@ checknewer() {
 }
 
 compile() {
-	objf=$objdir/$(basename $1 $ext).o
+	dirn=$objdir/$(dirname $1)
+	if [ ! -e $dirn ]; then
+		mkdir -p $dirn
+	fi
+
+	objf=$dirn/$(basename $1 $ext).o
 	deps=`$CC -MM $1 $CFLAGS | sed -e '{ s/^.*: //; s/\\\//; s/^ *// }'`
-	if checknewer $objf "$deps make"; then
+	if checknewer $objf "$deps"; then
 		if prettyprint "$CC -c $CFLAGS $1 -o $objf" 34 "Compiling $1 ... "; then
 			exit 1
 		fi
 	fi
 }
 
-if [ ! -e $objdir ]; then
-	mkdir $objdir
-fi
+compile_unittest() {
+	dirn=${objdir}.test/$(dirname $1)
+	if [ ! -e $dirn ]; then
+		mkdir -p $dirn
+	fi
+
+	objf=$dirn/$(basename $1 $ext).o
+	deps=`$CC -MM $1 -DUNITTEST $CFLAGS | sed -e '{ s/^.*: //; s/\\\//; s/^ *// }'`
+	if checknewer $objf "$deps"; then
+		if prettyprint "$CC -c $CFLAGS $1 -DUNITTEST -o $objf" 34 "Compiling unit test $1 ... "; then
+			exit 1
+		fi
+	fi
+}
 
 case "$1" in
 	single)
@@ -93,20 +109,53 @@ case "$1" in
 			compile $f
 		done
 
-		if checknewer $target "`ls $objdir/*.o`"; then
-			if prettyprint "$CC $objdir/*.o -o $target $LDFLAGS" 36 "Linking ..."; then
+		objfiles=$(find $objdir -name '*.o')
+		if checknewer $target "$objfiles"; then
+			if prettyprint "$CC $objfiles -o $target $LDFLAGS" 36 "Linking ..."; then
 				exit 1
 			fi
 		else
 			echo "$target allready is up to date."
 		fi ;;
 
+	build-test)
+		for f in $CCFILES; do
+			compile_unittest $f
+		done
+
+		objfiles=$(find ${objdir}.test -name '*.o')
+		if checknewer ${target}.test "$objfiles"; then
+			if prettyprint "$CC $objfiles -o ${target}.test $LDFLAGS" 36 "Linking test ..."; then
+				exit 1
+			fi
+		else
+			echo "$target.test allready is up to date."
+		fi ;;
+
+	run-test)
+		if $0 build-test; then
+			echo
+			echo "[ running test ]-------------------------------------------"
+			echo
+			exec ./$target.test
+		else
+			echo
+			echo "compilation failed, not running test"
+		fi ;;
+
 	run)
-		./make.sh -all
-		exec ./$target ;;
+		if $0 all; then
+			echo
+			echo "[ running target ]-----------------------------------------"
+			echo
+			exec ./$target
+		else
+			echo
+			echo "compilation failed, not running target."
+		fi;;
 
 	clean)
-		rm -rf $target $objdir
+		rm -rf $target $objdir ${target}.test ${objdir}.test
 		find . -name '*~' -exec rm {} \; ;;
 
 	*)
@@ -115,7 +164,7 @@ case "$1" in
 		echo "source for help on configuring the script."
 		echo
 		echo "run> ./make [command]"
-		echo "where [command] ∈ {single, all, run, clean}."
+		echo "where [command] ∈ {single, all, build-test, run-test, run, clean}."
 		echo
 		echo "'make single' expects one more argument giving a .cc file"
 		echo "that you want to compile."
