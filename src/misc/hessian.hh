@@ -14,38 +14,44 @@ namespace DMT {
 	using System::complex64;
 
 	template <unsigned R>
-	class HessianBase: public std::vector<Array<double>>
+	class HessianBase //: public std::vector<Array<double>>
 	{
+		std::vector<Array<double>> data;
+
 		public:
-			HessianBase(ptr<BoxConfig<R>> box, Array<double> A)
-				: std::vector<Array<double>>((R * (R + 1))/2, box->size())
-			{
-				std::cerr << "computing Hessian ... ";
-				Fourier::Transform dft(box->shape());
-				Array<complex64> A_f(box->size());
-				copy(A, dft.in);
-				dft.forward();
-				copy(dft.out, A_f);
+			HessianBase(ptr<BoxConfig<R>> box, Array<double> A);
 
-				auto K = Fourier::kspace<R>(box->N(), box->N());
-
-				unsigned o = 0;
-				double s = box->size() / box->scale2();	
-				for (unsigned i = 0; i < R; ++i) {
-					for (unsigned j = 0; j < i; ++j)
-				{
-					//push_back(Array<double>(box->size()));
-					auto F = Fourier::Fourier<R>::derivative(i) 
-					       * Fourier::Fourier<R>::derivative(j);
-					std::cerr << o;
-					transform(A_f, K, dft.in, Fourier::Fourier<R>::filter(F));
-					dft.backward();
-					std::cerr << " ... ";
-					transform(dft.out, (*this)[o], Fourier::real_part(s));
-					++o;
-				} }
-			}
+			Array<double> operator[](unsigned i) const { return data[i]; }
 	};
+
+	template <unsigned R>
+	HessianBase<R>::HessianBase(ptr<BoxConfig<R>> box, Array<double> A)
+		//: data((R * (R + 1))/2, box->size())
+	{
+		for (unsigned i = 0; i < (R * (R + 1))/2; ++i)
+			data.push_back(Array<double>(box->size()));
+
+		Fourier::Transform dft(box->shape());
+		Array<complex64> A_f(box->size());
+		copy(A, dft.in);
+		dft.forward();
+		copy(dft.out, A_f);
+
+		auto K = Fourier::kspace<R>(box->N(), box->N());
+		unsigned o = 0;
+		double s = box->size() / box->scale2();	
+		for (unsigned i = 0; i < R; ++i) {
+			for (unsigned j = 0; j <= i; ++j)
+		{
+			//push_back(Array<double>(box->size()));
+			auto F = Fourier::Fourier<R>::derivative(i) 
+			       * Fourier::Fourier<R>::derivative(j);
+			transform(A_f, K, dft.in, Fourier::Fourier<R>::filter(F));
+			dft.backward();
+			transform(dft.out, data[o], Fourier::real_part(s));
+			++o;
+		} }
+	}
 
 	template <unsigned R>
 	class Hessian;

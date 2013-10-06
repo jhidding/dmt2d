@@ -63,6 +63,7 @@ Array<mVector<double, 2>> compute_double_zeros_2(ptr<BoxConfig<2>> box, Array<do
 		return dX[i] * fraction;
 	};
 
+	std::cerr << C.size() << " candidates.\n";
 	// loop over all points in <C> and find accurate location of double root,
 	// by linear interpolation of both functions.
 	for (auto x : C)
@@ -100,5 +101,7 @@ Array<mVector<double, 2>> compute_double_zeros_2(ptr<BoxConfig<2>> box, Array<do
 			result->push_back(X);
 		}
 	}
+
+	return result;
 }
 
