@@ -16,6 +16,10 @@
 
 using namespace System;
 
+Array<mVector<double, 2>> compute_double_zeros_2(ptr<BoxConfig<2>> box, Array<double> f, Array<double> g);
+Array<Array<mVector<double, 2>>> compute_level_set_2(ptr<BoxConfig<2>> box, double a, Array<double> f);
+void print_level_set_2(ptr<BoxConfig<2>>, std::ostream &, Array<Array<mVector<double, 2>>>);
+
 class LagrangianCatastropheData
 {
 	ptr<BoxConfig<2>> box;
@@ -33,7 +37,7 @@ class LagrangianCatastropheData
 		void to_txt_file(std::string const &id)
 		{
 			std::ofstream fo1(timed_filename(id, "umbilics", -1));
-			out << "# umbilics\n";
+			fo1 << "# umbilics\n";
 			for (auto p : umbilics) fo1 << p << std::endl;
 			fo1.close();
 
@@ -44,9 +48,6 @@ class LagrangianCatastropheData
 			print_level_set_2(box, fo3, Q2z); fo3.close();
 		}
 };
-
-Array<mVector<double, 2>> compute_double_zeros_2(ptr<BoxConfig<2>> box, Array<double> f, Array<double> g);
-Array<Array<mVector<double, 2>>> compute_level_set_2(ptr<BoxConfig<2>> box, double a, Array<double> f);
 
 ptr<LagrangianCatastropheData> compute_lagrangian_catastrophes(ptr<BoxConfig<2>> box, Array<double> phi)
 {

@@ -13,7 +13,7 @@ typedef Array<Contour> Level_set;
 
 Array<Array<mVector<double, 2>>> compute_level_set_2(ptr<BoxConfig<2>> box, double a, Array<double> f)
 {
-	Level_set result(0);
+	Level_set result(0, 0);
 
 	size_t size = box->size();
 	cVector<2> ibox(box->bits());
@@ -38,7 +38,7 @@ Array<Array<mVector<double, 2>>> compute_level_set_2(ptr<BoxConfig<2>> box, doub
 			size_t target = (direction == 1 ? x : ibox.sub(x, dx[j]));
 			double frac = - (f[x] - a) / (f[ibox.add(x, dx[i])] - f[x]);
 			Point p = ibox.dvec(x) + ibox.dvec(dx[i]) * frac;
-			L.push_back(p);
+			L->push_back(p);
 
 			// quarter turn
 			if (C[j].count(ibox.add(target, dx[i])) > 0)
@@ -69,7 +69,7 @@ Array<Array<mVector<double, 2>>> compute_level_set_2(ptr<BoxConfig<2>> box, doub
 			break;
 		}
 
-		result.push_back(L);
+		result->push_back(L);
 	}
 
 	return result;
@@ -79,8 +79,8 @@ void print_contour_2(ptr<BoxConfig<2>> box, std::ostream &out, Contour C)
 {
 	for (unsigned a = 0; a <= C.size(); ++a)
 	{
-		unsigned i = System::modulus(int(a), int(size())),
-			 j = System::modulus(int(a) - 1, int(size()));
+		unsigned i = System::modulus(int(a), int(C.size())),
+			 j = System::modulus(int(a) - 1, int(C.size()));
 
 		if ((C[i] - C[j]).norm() > box->L() / 2)
 			out << "\n\n";
