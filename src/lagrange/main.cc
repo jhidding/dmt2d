@@ -19,20 +19,21 @@ using namespace System;
 Array<mVector<double, 2>> compute_double_zeros_2(ptr<BoxConfig<2>> box, Array<double> f, Array<double> g);
 Array<Array<mVector<double, 2>>> compute_level_set_2(ptr<BoxConfig<2>> box, double a, Array<double> f);
 void print_level_set_2(ptr<BoxConfig<2>>, std::ostream &, Array<Array<mVector<double, 2>>>);
+Array<Array<mVector<double, 2>>> compute_a3_lines_2(ptr<BoxConfig<2>>, Array<double>, DMT::Hessian<2>, Array<mVector<double,2>>);
 
 class LagrangianCatastropheData
 {
 	ptr<BoxConfig<2>> box;
 	typedef mVector<double, 2> Point;
-	typedef Array<Point> Contour;
-	typedef Array<Contour> Level_set;
+	typedef Array<Point> Line;
+	typedef Array<Line> Line_set;
 
 	Array<Point> umbilics;
-	Level_set Q1z, Q2z;
+	Line_set a3a, a3b;
 
 	public:
-		LagrangianCatastropheData(ptr<BoxConfig<2>> box_, Level_set Q1_, Level_set Q2_, Array<Point> umbilics_):
-			box(box_), umbilics(umbilics_), Q1z(Q1_), Q2z(Q2_) {}
+		LagrangianCatastropheData(ptr<BoxConfig<2>> box_, Line_set Q1_, Line_set Q2_, Array<Point> umbilics_):
+			box(box_), umbilics(umbilics_), a3a(Q1_), a3b(Q2_) {}
 
 		void to_txt_file(std::string const &id)
 		{
@@ -41,11 +42,11 @@ class LagrangianCatastropheData
 			for (auto p : umbilics) fo1 << p << std::endl;
 			fo1.close();
 
-			std::ofstream fo2(timed_filename(id, "q1", -1));
-			print_level_set_2(box, fo2, Q1z); fo2.close();
+			std::ofstream fo2(timed_filename(id, "a3.alpha", -1));
+			print_level_set_2(box, fo2, a3a); fo2.close();
 
-			std::ofstream fo3(timed_filename(id, "q2", -1));
-			print_level_set_2(box, fo3, Q2z); fo3.close();
+			std::ofstream fo3(timed_filename(id, "a3.beta", -1));
+			print_level_set_2(box, fo3, a3b); fo3.close();
 		}
 };
 
@@ -59,8 +60,10 @@ ptr<LagrangianCatastropheData> compute_lagrangian_catastrophes(ptr<BoxConfig<2>>
 	transform(H[0], H[2], Q1, [] (double a, double b) { return a - b; });
 
 	std::cerr << "eigenvalues ... ";
-	std::vector<Array<double>> Eval(2, size);
-	std::vector<Array<mVector<double,2>>> Evec(2, size);
+	std::vector<Array<double>> Eval; 
+	Eval.push_back(Array<double>(size)); Eval.push_back(Array<double>(size));
+	std::vector<Array<mVector<double,2>>> Evec;
+	Evec.push_back(Array<mVector<double,2>>(size)); Evec.push_back(Array<mVector<double,2>>(size));
 
 	for (size_t x = 0; x < size; ++x)
 	{
@@ -76,11 +79,13 @@ ptr<LagrangianCatastropheData> compute_lagrangian_catastrophes(ptr<BoxConfig<2>>
 
 	std::cerr << "umbilics ... ";
 	auto umbilics = compute_double_zeros_2(box, Q1, Q2);
-	auto Q1_zero = compute_level_set_2(box, 0.0, Q1);
-	auto Q2_zero = compute_level_set_2(box, 0.0, Q2);
+	//auto Q1_zero = compute_level_set_2(box, 0.0, Q1);
+	//auto Q2_zero = compute_level_set_2(box, 0.0, Q2);
+	auto A3_alpha = compute_a3_lines_2(box, Eval[0], H, umbilics);
+	auto A3_beta  = compute_a3_lines_2(box, Eval[1], H, umbilics);
 
 	std::cerr << "[returning]\n";
-	return make_ptr<LagrangianCatastropheData>(box, Q1_zero, Q2_zero, umbilics);
+	return make_ptr<LagrangianCatastropheData>(box, A3_alpha, A3_beta, umbilics);
 }
 
 void command_dmt(int argc_, char **argv_)

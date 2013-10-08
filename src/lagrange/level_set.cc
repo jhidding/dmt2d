@@ -19,6 +19,8 @@ Array<Array<mVector<double, 2>>> compute_level_set_2(ptr<BoxConfig<2>> box, doub
 	cVector<2> ibox(box->bits());
 	std::vector<size_t> &dx = ibox.dx_i;
 
+	// each cell has its top and left edges associated with its index.
+	// if the levelset crosses an edge add the edge to the collection C[0|1].
 	std::set<size_t> C[2];
 	for (size_t x; x < size; ++x)
 	{
@@ -26,6 +28,7 @@ Array<Array<mVector<double, 2>>> compute_level_set_2(ptr<BoxConfig<2>> box, doub
 		if ((f[x] - a) * (f[ibox.add(x, dx[1])] - a) < 0.0) C[1].insert(x);
 	}
 
+	// while edges crossings are not associated with some contour, continue running
 	while (not C[0].empty())
 	{
 		size_t x = *C[0].begin();
@@ -34,8 +37,11 @@ Array<Array<mVector<double, 2>>> compute_level_set_2(ptr<BoxConfig<2>> box, doub
 
 		while (true)
 		{
+			// erase last edge from C
 			C[i].erase(x);
+			// go to the adjacent cell
 			size_t target = (direction == 1 ? x : ibox.sub(x, dx[j]));
+			// compute the point of intersection, and push it to the levelset
 			double frac = - (f[x] - a) / (f[ibox.add(x, dx[i])] - f[x]);
 			Point p = ibox.dvec(x) + ibox.dvec(dx[i]) * frac;
 			L->push_back(p);
@@ -77,7 +83,7 @@ Array<Array<mVector<double, 2>>> compute_level_set_2(ptr<BoxConfig<2>> box, doub
 
 void print_contour_2(ptr<BoxConfig<2>> box, std::ostream &out, Contour C)
 {
-	for (unsigned a = 0; a <= C.size(); ++a)
+	for (unsigned a = 0; a < C.size(); ++a)
 	{
 		unsigned i = System::modulus(int(a), int(C.size())),
 			 j = System::modulus(int(a) - 1, int(C.size()));

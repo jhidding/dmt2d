@@ -14,22 +14,22 @@ namespace DMT {
 	using System::complex64;
 
 	template <unsigned R>
-	class HessianBase //: public std::vector<Array<double>>
+	class HessianBase: public Array<Array<double>>
 	{
-		std::vector<Array<double>> data;
+		// std::vector<Array<double>> data;
 
 		public:
 			HessianBase(ptr<BoxConfig<R>> box, Array<double> A);
 
-			Array<double> operator[](unsigned i) const { return data[i]; }
+			// Array<double> operator[](unsigned i) const { return data[i]; }
 	};
 
 	template <unsigned R>
-	HessianBase<R>::HessianBase(ptr<BoxConfig<R>> box, Array<double> A)
-		//: data((R * (R + 1))/2, box->size())
+	HessianBase<R>::HessianBase(ptr<BoxConfig<R>> box, Array<double> A):
+		Array<Array<double>>(0,0)
 	{
 		for (unsigned i = 0; i < (R * (R + 1))/2; ++i)
-			data.push_back(Array<double>(box->size()));
+			get()->push_back(Array<double>(box->size()));
 
 		Fourier::Transform dft(box->shape());
 		Array<complex64> A_f(box->size());
@@ -48,7 +48,7 @@ namespace DMT {
 			       * Fourier::Fourier<R>::derivative(j);
 			transform(A_f, K, dft.in, Fourier::Fourier<R>::filter(F));
 			dft.backward();
-			transform(dft.out, data[o], Fourier::real_part(s));
+			transform(dft.out, (*this)[o], Fourier::real_part(s));
 			++o;
 		} }
 	}

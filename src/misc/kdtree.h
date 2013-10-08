@@ -4,7 +4,7 @@
 #include <functional>
 #include <algorithm>
 
-#include "mvector.h"
+#include "../base/mvector.h"
 
 /*
  * KdTree algorithm
