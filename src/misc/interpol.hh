@@ -15,15 +15,15 @@ namespace Misc
 		using dVector = System::mVector<double, R>;
 		using iVector = System::mVector<int, R>;
 
-		System::ptr<System::BoxConfig<R>> box;
-		Q						f;
+		cVector<R>	b;
+		Q			f;
 
 		public:
-			typedef typename Q::value_type FT;
+			//typedef typename Q::value_type FT;
 			typedef mVector<double, R> Point;
 
-			Linear(System::ptr<System::BoxConfig<R>> box_, Q f_):
-				box(box_), f(f_)
+			Linear(System::ptr<System::BoxConfig<R>> box, Q f_):
+				b(box->bits()), f(f_)
 			{}
 
 			typename Q::value_type operator()(Point const &x) const
@@ -39,22 +39,22 @@ namespace Misc
 					A[0][k] = 1 - A[1][k];
 				}
 
-				auto s = box->m2c(origin);
+				size_t s = b.loc(origin);
 				typename Q::value_type v(0);
 
-				for (auto dx : box->sq())
+				for (size_t dx : b.sq_i)
 				{
 					double z = 1;
 					for (unsigned k = 0; k < R; ++k) 
-						z *= A[dx[k]][k];
+						z *= A[b.i(dx,k)][k];
 
-					v += f[s + dx] * z;
+					v += f[b.add(s,dx)] * z;
 				}
 
 				return v;
 			}
 	};
-
+/*
 	template <typename F, int R>
 	class Spline {};
 
@@ -161,12 +161,13 @@ namespace Misc
 #include "spline1.ih"
 #include "spline2.ih"
 #include "spline3.ih"
-
+*/
 	} // namespace Interpol
 } // namespace Misc
 
+/*
 #include "cspline.ih"
 #include "bspline.ih"
 #include "tspline.ih"
-
+*/
 // vim:sw=4:ts=4:tw=72

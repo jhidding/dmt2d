@@ -52,6 +52,8 @@ namespace System
 	class Array: public Ref<std::vector<T>>
 	{
 		public:
+			typedef T value_type;
+
 			using Ref<std::vector<T>>::get;
 
 			Array(size_t n, T value = T()):

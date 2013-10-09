@@ -153,15 +153,17 @@ namespace System
 			{
 				return C(*this, i);
 			}
+*/
 
-			C loc(mVector<int, R> const &a) const
+			inline
+			size_t loc(mVector<int, R> const &a) const
 			{
 				size_t n = 0;
 				for (unsigned i = 0; i < R; ++i)
 					n |= idx(a[i] << (i * b), i);
-				return C(*this, n);
+				return n;
 			}
-*/
+
 			template <typename T>
 			size_t operator()(mVector<T, R> const &a) const
 			{
