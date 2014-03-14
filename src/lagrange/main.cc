@@ -50,6 +50,22 @@ void print_a3_line_2(ptr<BoxConfig<2>> box, std::ostream &out, Array<mVector<dou
 	}
 }
 
+template <typename F>
+void print_entire_a3_line_2(ptr<BoxConfig<2>> box, std::ostream &out, Array<mVector<double,2>> C, F f)
+{
+	for (unsigned a = 0; a < C.size(); ++a)
+	{
+		unsigned i = System::modulus(int(a), int(C.size())),
+			 j = System::modulus(int(a) - 1, int(C.size()));
+
+		if ((C[i] - C[j]).norm() > box->L() / 2)
+			out << "\n\n";
+
+		out << C[i] << " " << f(C[i]) << "\n";
+	}
+}
+
+
 class LagrangianCatastropheData
 {
 	ptr<BoxConfig<2>> box;
@@ -87,7 +103,7 @@ class LagrangianCatastropheData
 
 			std::ofstream fo1(timed_filename(id, "points", -1));
 			fo1 << "# umbilics\n";
-			for (auto p : umbilics) if (Eva(p) > 0) fo1 << p << std::endl;
+			for (auto p : umbilics) if (Eva(p) > 0) fo1 << p << " " << Eva(p) << std::endl;
 
 			fo1 << "\n\n# a3+/- and a4 for alpha\n";
 			for (auto p : Ea) if (Eva(p) > 0) fo1 << p << std::endl;
@@ -103,6 +119,7 @@ class LagrangianCatastropheData
 				fo2 << "\n\n";
 			} fo2.close();
 
+			/*
 			std::ofstream fo4(timed_filename(id, "pogo.a", -1));
 			std::ofstream fo5(timed_filename(id, "pogo.b", -1));
 			for (auto L : pogo_a)
@@ -116,6 +133,7 @@ class LagrangianCatastropheData
 				fo5 << "\n\n";
 			}
 			fo4.close(); fo5.close();
+			*/
 
 			std::ofstream fo3(timed_filename(id, "a3.beta", -1));
 			for (auto L : a3b) 
