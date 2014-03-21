@@ -215,6 +215,13 @@ void command_dmt(int argc_, char **argv_)
 	std::string fn_output = (argv["output"] == "-" ?
 			timed_filename(argv["id"], "catastrophes", -1) :
 			argv["output"]);
+	
+	if (argv.get<bool>("help"))
+	{
+		std::cout << "Cosmic workset Conan, by Johan Hidding.\n\n";
+		argv.print(std::cout);
+		exit(0);
+	}
 
 	std::ifstream fi;
 	std::cerr << "reading " << fn_input << " ...\n";
