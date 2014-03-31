@@ -25,7 +25,7 @@ Array<mVector<double, 2>> compute_line_extrema_2(ptr<BoxConfig<2>>, Array<double
 Array<Array<mVector<double, 2>>> compute_pogosyan_lines_2(ptr<BoxConfig<2>>, Array<double>, Array<mVector<double,2>>, Array<mVector<double,2>>, DMT::Hessian<2>, bool);
 
 template <typename F>
-void print_a3_line_2(ptr<BoxConfig<2>> box, std::ostream &out, Array<mVector<double,2>> C, F f)
+void print_a3_line_2(ptr<BoxConfig<2>> box, std::ostream &out, Array<mVector<double,2>> C, F f, bool trunc = true)
 {
 	bool pen_on_paper = true;
 	for (unsigned a = 0; a < C.size(); ++a)
@@ -36,7 +36,7 @@ void print_a3_line_2(ptr<BoxConfig<2>> box, std::ostream &out, Array<mVector<dou
 		if ((C[i] - C[j]).norm() > box->L() / 2)
 			out << "\n\n";
 
-		if (f(C[i]) > 0)
+		if ((f(C[i]) > 0) or (not trunc))
 		{
 			pen_on_paper = true;
 			out << C[i] << " " << f(C[i]) << "\n";
@@ -90,7 +90,7 @@ class LagrangianCatastropheData
        			Ea(ea_), Eb(eb_)
 		{}
 
-		void to_txt_file(std::ostream &out, std::string const &id)
+		void to_txt_file(std::ostream &out, std::string const &id, bool trunc = true)
 		{
 			Misc::Interpol::Linear<Array<double>,2> Eva(box, ev_a), Evb(box, ev_b), Rho(box, rho);
 
@@ -103,19 +103,22 @@ class LagrangianCatastropheData
 
 			std::ofstream fo1(timed_filename(id, "points", -1));
 			fo1 << "# umbilics\n";
-			for (auto p : umbilics) if (Eva(p) > 0) fo1 << p << " " << Eva(p) << std::endl;
+			for (auto p : umbilics) if ((Eva(p) > 0) or (not trunc)) 
+				fo1 << p << " " << Eva(p) << std::endl;
 
 			fo1 << "\n\n# a3+/- and a4 for alpha\n";
-			for (auto p : Ea) if (Eva(p) > 0) fo1 << p << std::endl;
+			for (auto p : Ea) if ((Eva(p) > 0) or (not trunc))
+				fo1 << p << " " << Eva(p) << std::endl;
 
 			fo1 << "\n\n# a3+/- and a4 for beta\n";
-			for (auto p : Eb) if (Evb(p) > 0) fo1 << p << std::endl;
+			for (auto p : Eb) if ((Evb(p) > 0) or (not trunc))
+				fo1 << p << " " << Evb(p) << std::endl;
 			fo1.close();
 
 			std::ofstream fo2(timed_filename(id, "a3.alpha", -1));
 			for (auto L : a3a) 
 			{
-				print_a3_line_2(box, fo2, L, Eva);
+				print_a3_line_2(box, fo2, L, Eva, trunc);
 				fo2 << "\n\n";
 			} fo2.close();
 
@@ -138,7 +141,7 @@ class LagrangianCatastropheData
 			std::ofstream fo3(timed_filename(id, "a3.beta", -1));
 			for (auto L : a3b) 
 			{
-				print_a3_line_2(box, fo3, L, Evb);
+				print_a3_line_2(box, fo3, L, Evb, trunc);
 				fo3 << "\n\n";
 			} fo3.close();
 
@@ -206,7 +209,9 @@ void command_dmt(int argc_, char **argv_)
 		Option({Option::VALUED | Option::CHECK, "i", "input", "-",
 			"Input file. Defaults to <id>.init.dmt"}),
 		Option({Option::VALUED | Option::CHECK, "o", "output", "-",
-			"Output file. Defaults to <id>.catastrophes.init.dmt"}));
+			"Output file. Defaults to <id>.catastrophes.init.dmt"}),
+		Option({0, "", "truncate", "false", 
+			"truncate output to positive eigenvalues."}));
 
 	std::string fn_input = (argv["input"] == "-" ? 
 			timed_filename(argv["id"], "density", -1) :
@@ -249,7 +254,7 @@ void command_dmt(int argc_, char **argv_)
 	std::cerr << "box: " << box->N() << " data: " << potential.size() << std::endl;
 	auto data = compute_lagrangian_catastrophes(box, density, potential);
 	std::cerr << "writing to file ... ";
-	data->to_txt_file(fo, argv["id"]);
+	data->to_txt_file(fo, argv["id"], argv.get<bool>("truncate"));
 
 	fi.close();
 	fo.close();
