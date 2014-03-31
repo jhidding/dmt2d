@@ -33,7 +33,7 @@ void print_a3_line_2(ptr<BoxConfig<2>> box, std::ostream &out, Array<mVector<dou
 		unsigned i = System::modulus(int(a), int(C.size())),
 			 j = System::modulus(int(a) - 1, int(C.size()));
 
-		if ((C[i] - C[j]).norm() > box->L() / 2)
+		if ((C[i] - C[j]).norm() > box->N() / 2)
 			out << "\n\n";
 
 		if ((f(C[i]) > 0) or (not trunc))
