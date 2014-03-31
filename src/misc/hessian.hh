@@ -37,7 +37,7 @@ namespace DMT {
 		dft.forward();
 		copy(dft.out, A_f);
 
-		auto K = Fourier::kspace<R>(box->N(), box->N());
+		auto K = Fourier::kspace<R>(box->N(), box->L());
 		unsigned o = 0;
 		double s = box->size() / box->scale2();	
 		for (unsigned i = 0; i < R; ++i) {
@@ -48,7 +48,7 @@ namespace DMT {
 			       * Fourier::Fourier<R>::derivative(j);
 			transform(A_f, K, dft.in, Fourier::Fourier<R>::filter(F));
 			dft.backward();
-			transform(dft.out, (*this)[o], Fourier::real_part(s));
+			transform(dft.out, (*this)[o], Fourier::real_part(box->size()));
 			++o;
 		} }
 	}

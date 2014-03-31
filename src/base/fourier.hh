@@ -75,16 +75,27 @@ namespace Fourier
 					}
 			};
 
-			static inline Filter scale(double t)
+			static inline Filter scale(unsigned N, double L, double t)
 			{
-				return Filter([t] (Vector const &K)
+				return Filter([N, L, t] (Vector const &K)
 				{
 					double v = 1.0;
 					for (auto k : K)
 					{
-						v *= exp(t * (cos(k) - 1));
+						v *= exp(pow(t * N / L, 2) * (cos(k * L / N) - 1));
 					}
 					return complex64(v);
+				});
+			}
+
+			static inline Filter box_truncation(unsigned N, double L)
+			{
+				return Filter([N, L] (Vector const &K)
+				{
+					if (K.sqr() > pow(M_PI * N / L, 2))
+						return complex64(0);
+					else
+						return complex64(1);
 				});
 			}
 
@@ -108,7 +119,7 @@ namespace Fourier
 			{
 				return Filter([i] (Vector const &K)
 				{
-					return math_i * sin(K[i]);
+					return - math_i * K[i];
 				});
 			}
 

@@ -32,11 +32,12 @@ Array<double> _generate_random_field(Header const &C)
 
 	auto P = Fourier::Fourier<R>::power_spectrum(
 		[slope] (double k) { return pow(k, slope); });
-	auto S = Fourier::Fourier<R>::scale(sigma * N/L);
-	auto K = Fourier::kspace<R>(N, N);
+	auto S = Fourier::Fourier<R>::scale(N, L, sigma);
+	auto T = Fourier::Fourier<R>::box_truncation(N, L);
+	auto K = Fourier::kspace<R>(N, L);
 
 	fft.forward();
-	transform(fft.out, K, fft.in, Fourier::Fourier<R>::filter(P * S));
+	transform(fft.out, K, fft.in, Fourier::Fourier<R>::filter(P * S * T));
 	fft.in[0] = 0;
 	fft.backward();
 	copy(dens, fft.in);
@@ -46,7 +47,7 @@ Array<double> _generate_random_field(Header const &C)
 
 	fft.forward();
 	transform(fft.out, K, fft.in, 
-			Fourier::Fourier<R>::filter((smooth ? P * S : P)));
+			Fourier::Fourier<R>::filter((smooth ? P * S * T : P * T)));
 
 	fft.in[0] = 0;
 	fft.backward();
