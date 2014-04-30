@@ -20,8 +20,8 @@ namespace Misc
 
 			inline double fdi(size_t i, unsigned k) const
 			{
-				return data[b->sub(i, b->dx2[k])] / 12. - 2. * data[b->sub(i, b->dx[k])] / 3.
-					+ 2. * data[b->add(i, b->dx[k])] / 3. - data[b->add(i, b->dx2[k])] / 12.;
+				return data[b->sub(i, b->dx2_i[k])] / 12. - 2. * data[b->sub(i, b->dx_i[k])] / 3.
+					+ 2. * data[b->add(i, b->dx_i[k])] / 3. - data[b->add(i, b->dx2_i[k])] / 12.;
 			}
 
 			inline Vector grad(size_t i) const

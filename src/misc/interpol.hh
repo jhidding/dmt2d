@@ -16,7 +16,7 @@ namespace Misc
 		using iVector = System::mVector<int, R>;
 
 		cVector<R>	b;
-		Q			f;
+		Q		f;
 
 		public:
 			//typedef typename Q::value_type FT;

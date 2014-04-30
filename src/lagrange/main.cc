@@ -14,6 +14,7 @@
 
 #include "../misc/hessian.hh"
 #include "../misc/interpol.hh"
+#include "../misc/gradient.hh"
 
 using namespace System;
 
@@ -40,6 +41,32 @@ void print_a3_line_2(ptr<BoxConfig<2>> box, std::ostream &out, Array<mVector<dou
 		{
 			pen_on_paper = true;
 			out << C[i] << " " << f(C[i]) << "\n";
+		}
+		else
+		{
+			if (pen_on_paper)
+				out << "\n\n";
+			pen_on_paper = false;
+		}
+	}
+}
+
+template <typename F, typename ZA>
+void print_a3_line_2_za(ptr<BoxConfig<2>> box, std::ostream &out, Array<mVector<double,2>> C, F f, ZA za, bool trunc = true)
+{
+	bool pen_on_paper = true;
+	for (unsigned a = 0; a < C.size(); ++a)
+	{
+		unsigned i = System::modulus(int(a), int(C.size())),
+			 j = System::modulus(int(a) - 1, int(C.size()));
+
+		if ((C[i] - C[j]).norm() > box->N() / 2)
+			out << "\n\n";
+
+		if ((f(C[i]) > 0) or (not trunc))
+		{
+			pen_on_paper = true;
+			out << C[i] << " " << C[i] - za(C[i]) << " " << f(C[i]) << "\n";
 		}
 		else
 		{
@@ -89,6 +116,87 @@ class LagrangianCatastropheData
 			a3a(Q1_), a3b(Q2_), pogo_a(p1), pogo_b(p2),
        			Ea(ea_), Eb(eb_)
 		{}
+
+		void write_eulerian(ptr<BoxConfig<2>> box, Array<double> potential, std::string const &id, double time, bool trunc = true)
+		{
+			cVector<2> b(box->bits());
+
+			Misc::Interpol::Linear<Misc::Gradient<2>, 2> grad_phi(box, Misc::Gradient<2>(box, potential));
+			auto Disp = [grad_phi, time, box] (Point const &p) -> Point
+			{
+				return grad_phi(p) * (time / box->scale2());
+			};
+
+			Misc::Interpol::Linear<Array<double>, 2> Eva(box, ev_a), Evb(box, ev_b), Rho(box, rho);
+
+			std::ofstream fo_d(timed_filename(id, "za", time));
+			for (size_t x = 0; x < box->size(); ++x)
+			{
+				auto X = b.dvec(x);
+				fo_d << X << " " << Disp(X) << std::endl;
+			} fo_d.close();
+
+			Line_set a2a = compute_level_set_2(box, 1./time, ev_a);
+			Line_set a2b = compute_level_set_2(box, 1./time, ev_b);
+
+			std::ofstream fo1(timed_filename(id, "points", time));
+			fo1 << "# umbilics\n";
+			for (auto p : umbilics) if ((Eva(p) > 0) or (not trunc)) 
+				fo1 << p << " " << p - Disp(p) << " " << Eva(p) << std::endl;
+
+			fo1 << "\n\n# a3+/- and a4 for alpha\n";
+			for (auto p : Ea) if ((Eva(p) > 0) or (not trunc))
+				fo1 << p << " " << p - Disp(p) << " " << Eva(p) << std::endl;
+
+			fo1 << "\n\n# a3+/- and a4 for beta\n";
+			for (auto p : Eb) if ((Evb(p) > 0) or (not trunc))
+				fo1 << p << " " << p - Disp(p) << " " << Evb(p) << std::endl;
+			fo1.close();
+
+			std::ofstream fo4(timed_filename(id, "a2.alpha", time));
+			for (auto L : a2a) 
+			{
+				print_a3_line_2_za(box, fo4, L, Eva, Disp, false);
+				fo4 << "\n\n";
+			} fo4.close();
+
+			std::ofstream fo2(timed_filename(id, "a3.alpha", time));
+			for (auto L : a3a) 
+			{
+				print_a3_line_2_za(box, fo2, L, Eva, Disp, trunc);
+				fo2 << "\n\n";
+			} fo2.close();
+
+			/*
+			std::ofstream fo4(timed_filename(id, "pogo.a", -1));
+			std::ofstream fo5(timed_filename(id, "pogo.b", -1));
+			for (auto L : pogo_a)
+			{
+				print_a3_line_2(box, fo4, L, Rho);
+				fo4 << "\n\n";
+			}
+			for (auto L : pogo_b)
+			{
+				print_a3_line_2(box, fo5, L, Rho);
+				fo5 << "\n\n";
+			}
+			fo4.close(); fo5.close();
+			*/
+
+			std::ofstream fo5(timed_filename(id, "a2.beta", time));
+			for (auto L : a2b) 
+			{
+				print_a3_line_2_za(box, fo5, L, Evb, Disp, false);
+				fo5 << "\n\n";
+			} fo5.close();
+
+			std::ofstream fo3(timed_filename(id, "a3.beta", time));
+			for (auto L : a3b) 
+			{
+				print_a3_line_2_za(box, fo3, L, Evb, Disp, trunc);
+				fo3 << "\n\n";
+			} fo3.close();
+		}
 
 		void to_txt_file(std::ostream &out, std::string const &id, bool trunc = true)
 		{
@@ -144,7 +252,6 @@ class LagrangianCatastropheData
 				print_a3_line_2(box, fo3, L, Evb, trunc);
 				fo3 << "\n\n";
 			} fo3.close();
-
 		}
 };
 
@@ -211,7 +318,11 @@ void command_dmt(int argc_, char **argv_)
 		Option({Option::VALUED | Option::CHECK, "o", "output", "-",
 			"Output file. Defaults to <id>.catastrophes.init.dmt"}),
 		Option({0, "", "truncate", "false", 
-			"truncate output to positive eigenvalues."}));
+			"truncate output to positive eigenvalues."}),
+		Option({0, "e", "eulerian", "false",
+			"include displaced information."}),
+		Option({Option::VALUED | Option::CHECK, "t", "time", "1.0",
+			"growing-mode solution for Zeldovich displacement."}));
 
 	std::string fn_input = (argv["input"] == "-" ? 
 			timed_filename(argv["id"], "density", -1) :
@@ -254,7 +365,15 @@ void command_dmt(int argc_, char **argv_)
 	std::cerr << "box: " << box->N() << " data: " << potential.size() << std::endl;
 	auto data = compute_lagrangian_catastrophes(box, density, potential);
 	std::cerr << "writing to file ... ";
-	data->to_txt_file(fo, argv["id"], argv.get<bool>("truncate"));
+
+	if (argv.get<bool>("eulerian"))
+	{
+		data->write_eulerian(box, potential, argv["id"], argv.get<double>("time"), argv.get<bool>("truncate"));
+	}
+	else
+	{
+		data->to_txt_file(fo, argv["id"], argv.get<bool>("truncate"));
+	}
 
 	fi.close();
 	fo.close();

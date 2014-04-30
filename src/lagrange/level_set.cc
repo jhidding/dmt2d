@@ -11,7 +11,7 @@ typedef mVector<double,2> Point;
 typedef Array<Point> Contour;
 typedef Array<Contour> Level_set;
 
-Array<Array<mVector<double, 2>>> compute_level_set_2(ptr<BoxConfig<2>> box, double a, Array<double> f)
+Level_set compute_level_set_2(ptr<BoxConfig<2>> box, double a, Array<double> f)
 {
 	Level_set result(0, 0);
 
