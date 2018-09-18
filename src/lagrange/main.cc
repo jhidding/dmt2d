@@ -117,7 +117,7 @@ class LagrangianCatastropheData
        			Ea(ea_), Eb(eb_)
 		{}
 
-		void write_eulerian(ptr<BoxConfig<2>> box, Array<double> potential, std::string const &id, double time, bool trunc = true)
+		void write_eulerian(ptr<BoxConfig<2>> box, std::ostream &out, Array<double> potential, std::string const &id, double time, bool trunc = true)
 		{
 			cVector<2> b(box->bits());
 
@@ -128,6 +128,26 @@ class LagrangianCatastropheData
 			};
 
 			Misc::Interpol::Linear<Array<double>, 2> Eva(box, ev_a), Evb(box, ev_b), Rho(box, rho);
+
+			size_t x = 0;
+			for (unsigned i = 0; i < box->N(); ++i)
+			{
+				for (unsigned j = 0; j < box->N(); ++j, ++x)
+				{
+					out << ev_a[x] << " ";
+				}
+				out << std::endl;
+			} out << "\n\n";
+
+			x = 0;
+			for (unsigned i = 0; i < box->N(); ++i)
+			{
+				for (unsigned j = 0; j < box->N(); ++j, ++x)
+				{
+					out << ev_b[x] << " ";
+				}
+				out << std::endl;
+			}
 
 			std::ofstream fo_d(timed_filename(id, "za", time));
 			for (size_t x = 0; x < box->size(); ++x)
@@ -368,7 +388,7 @@ void command_dmt(int argc_, char **argv_)
 
 	if (argv.get<bool>("eulerian"))
 	{
-		data->write_eulerian(box, potential, argv["id"], argv.get<double>("time"), argv.get<bool>("truncate"));
+		data->write_eulerian(box, fo, potential, argv["id"], argv.get<double>("time"), argv.get<bool>("truncate"));
 	}
 	else
 	{
